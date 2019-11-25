@@ -1,4 +1,4 @@
-class WrongCommandError(Exception):
+class WrongMethodError(Exception):
     def __init__(self, text):
         self._text = text
 

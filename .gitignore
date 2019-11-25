@@ -1,5 +1,7 @@
 x.py
 venv/
 .idea/
-Methods/__pycache__/
-constants.py
+HTTP/__pycache__/
+HTTP_constants.py
+Errors/__pycache__/
+Program/__pycache__/

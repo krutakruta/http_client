@@ -1,4 +1,4 @@
-from PartsOfRequest.starting_line import StartingLine
+from HTTP.PartsOfRequest.starting_line import StartingLine
 
 
 class HTTPRequest:
