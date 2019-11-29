@@ -1,4 +1,4 @@
-from HTTP.HTTP_methods import HTTP_Methods
+from Source.HTTP.http_methods import HTTPMethods
 
 
 class StartingLine:
@@ -9,5 +9,5 @@ class StartingLine:
         self._http_version = http_version
 
     def _check_method(self, method):
-        if type(method) is not HTTP_Methods:
+        if type(method) is not HTTPMethods:
             raise TypeError("{} isn't command type".format(type(method)))

@@ -1,5 +1,5 @@
 Формат входных данных:
-	python [programName] [commandName] [parameter options] [parameter options] ...
+	python [programName] [methodName] [methodArgument] [parameter option] [parameter option] ...
 [programName] - имя программы, которая запускается
 [commandName] - название команды
 [parameter:options] - параметр команды с опциями, перечисленными через пробел

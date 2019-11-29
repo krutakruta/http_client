@@ -1,10 +1,13 @@
 import sys
-from Program.http_client import HTTPClient
+from Source.Program.http_client import HTTPClient
+
+
+# ["main.py", "help", "GET"]
+# ["main.py", "dsf", "-o", "http://vk.com", "sdasd"]
 
 
 def main():
     program = HTTPClient()
-    print(sys.argv)
     program.run(sys.argv)
 
 
