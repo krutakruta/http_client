@@ -1,4 +1,5 @@
 from functools import wraps
+import copy
 
 
 class CommandLineHTTPRequest:
@@ -45,8 +46,8 @@ class CommandLineHTTPRequest:
         return self._method
 
     @property
-    def parameters_and_its_options(self):
-        return self._parameters_and_its_option
+    def parameters_and_its_options_copy(self):
+        return copy.copy(self._parameters_and_its_option)
 
     @property
     def method_argument(self):

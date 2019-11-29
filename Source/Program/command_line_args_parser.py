@@ -75,7 +75,8 @@ class CommandLineArgsParser:
         if (len(args) == 2 and not ServiceCommands.is_command(args[1]) and
                 not HTTPMethods.is_method(args[1]) and not args[1].startswith("-") or
                 len(args) >= 3 and (HTTPMethods.is_method(args[1]) or
-                                    not args[1].startswith("-"))):
+                                    not args[1].startswith("-")) and
+                not ServiceCommands.is_command(args[1])):
             return CommandLineHTTPRequest
         else:
             return CommandLineServiceRequest

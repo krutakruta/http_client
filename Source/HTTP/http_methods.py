@@ -2,7 +2,9 @@ from enum import Enum
 
 
 class HTTPMethods:
-    _available_methods = {"GET", "POST", "PUT", "DELETE", "OPTIONS",
+    _available_methods = {"GET"}
+
+    _potential_methods = {"POST", "PUT", "DELETE", "OPTIONS",
                           "PATCH", "TRACE", "CONNECT", "HEAD"}
 
     @staticmethod
