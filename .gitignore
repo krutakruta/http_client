@@ -1,7 +1,10 @@
 x.py
 venv/
 .idea/
-Source/HTTP/__pycache__/
-HTTP_constants.py
-Source/Errors/__pycache__/
-Source/Program/__pycache__/
+HTTP/__pycache__/
+HTTP/HTTP_config.py
+Errors/__pycache__/
+Program/__pycache__/
+Service/__pycache__/
+UserRequests/__pycache__/
+HTTPClient.zip

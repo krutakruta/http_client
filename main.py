@@ -1,5 +1,6 @@
 import sys
-from Source.Program.http_client import HTTPClient
+from Program.http_client import HTTPClient
+import argparse
 
 
 # ["main.py", "help", "GET"]
@@ -7,8 +8,26 @@ from Source.Program.http_client import HTTPClient
 
 
 def main():
-    program = HTTPClient()
-    program.run(sys.argv)
+    http_client = HTTPClient()
+    args_parser = create_parser()
+    try:
+        parsing_result = args_parser.parse_args()
+        http_client.run(parsing_result)
+    except Exception:
+        raise
+
+def create_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-X", "--request-method", default="GET",
+        type=str, help="HTTP request method")
+    parser.add_argument(
+        "-o", "--output", type=str, help="Output file")
+    parser.add_argument(
+        "-m", "--max-time", type=int,
+        help="Maximum time allowed for the transfer")
+    parser.add_argument("url")
+    return parser
 
 
 if __name__ == "__main__":

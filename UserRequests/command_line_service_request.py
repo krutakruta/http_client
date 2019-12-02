@@ -1,5 +1,5 @@
-from Source.Service.service_commands import ServiceCommands
-from Source.Service.service_commands_params import ServiceCommandsParams
+from Service.service_commands import ServiceCommands
+from Service.service_commands_params import ServiceCommandsParams
 
 
 class CommandLineServiceRequest:
