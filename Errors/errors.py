@@ -1,6 +1,5 @@
-class WrongMethodArgumentError(Exception):
+class WrongUrlError(Exception):
     pass
-
 
 class WrongMethodError(Exception):
     pass

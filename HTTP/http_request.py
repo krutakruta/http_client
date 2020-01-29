@@ -3,9 +3,9 @@ import copy
 
 class HTTPRequest:
     def __init__(self):
-        self._starting_line = ""
+        self._starting_line = None
         self._headers = {}
-        self._message_body = ""
+        self._message_body = None
 
     def set_starting_line(self, line):
         self._starting_line = line

@@ -1,6 +1,6 @@
 class HTTPMethodsParams:
     _http_methods_params = {"GET": {"remote_name": "-O", "output": "-o"}}
-    _common_http_method_params = {"max_time": "-m"}
+    _common_http_method_params = {"max_time": "-m", "additional_header": "-hr"}
 
     @staticmethod
     def is_GET_param(p):

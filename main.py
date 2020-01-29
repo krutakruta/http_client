@@ -27,8 +27,8 @@ def main():
 
 
 def print_client_response(response):
-    print(response.text)
-
+    pass
+    #print(response.text)
 
 def create_parser():
     parser = argparse.ArgumentParser()
@@ -40,6 +40,9 @@ def create_parser():
     parser.add_argument(
         "-m", "--max-time", type=float, default=0.2,
         help="Maximum time allowed for the transfer")
+    parser.add_argument(
+        "-hr", "--additional-header", type=str, nargs=2,
+        help="Add header to http request: -hr 'headerName' 'option'")
     parser.add_argument("url")
     return parser
 
