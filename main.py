@@ -18,8 +18,8 @@ def main():
         response = http_client.get_client_response()
         if response is not None:
             print_client_response(response)
-    except socket.gaierror:
-        print("Сервер недоступен")
+    except socket.gaierror as error:
+        print("Сервер недоступен либо ошибка в URL")
     except AccessToTheFileIsDenied as error:
         print("Доступ к файлу {} запрещен".format(error.filename))
     except Exception:

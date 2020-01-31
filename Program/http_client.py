@@ -3,6 +3,7 @@ from HTTP.HTTP_config import HTTPConfig
 from HTTP.http_methods import HTTPMethods
 from HTTP.http_methods_params import HTTPMethodsParams
 from HTTP.http_request import HTTPRequest
+from HTTP.http_response import HTTPResponse, HTTPStatus
 from Program.client_response import TextClientResponse
 from Program.http_response_parser import HTTPResponseParser
 from urllib.parse import urlparse
@@ -16,64 +17,87 @@ class HTTPClient:
         self._http_response_parser = HTTPResponseParser()
         self._client_response = None
         self._user_request = UserHTTPRequest()
+        self._response_to_user = None
 
     def run(self, args):
         try:
-            self._parse_args(args)
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                if self._user_request.request_method == HTTPMethods.GET:
-                    http_request = self._create_get_request()
-                    self._send_http_request(http_request, sock)
-                else:
-                    raise WrongMethodError()
-                response_in_bytes = self._get_server_response_in_bytes(sock)
-                self._http_response = self._http_response_parser. \
-                    parse_response_in_bytes_to_http_response(response_in_bytes)
-                print(response_in_bytes.decode("utf-8"))
-                if self._http_response.is_it_2xx_response():
-                    self._handle_2xx_response()
-                if self._http_response.is_it_3xx_response():
-                    self._handle_3xx_response(sock)
-                if self._http_response.is_it_4xx_response():
-                    self._handle_4xx_response()
-                if self._http_response.is_it_5xx_response():
-                    self._handle_5xx_response()
+                http_response = self._handle_user_request(args, sock)
+                #print(http_response.message_body.decode(encoding="utf-8", errors="ignore"))
+                self._handle_server_reponse(http_response, sock)
         except Exception:
             raise
+
+    def _handle_user_request(self, args, sock):
+        self._parse_args(args)
+        if self._user_request.request_method == HTTPMethods.GET:
+            http_request = self._create_get_request(self._user_request.method_argument)
+            self._send_http_request(http_request, sock)
+        else:
+            raise WrongMethodError()
+        response_in_bytes = self._get_server_response_in_bytes(sock)
+        http_response = self._http_response_parser. \
+            parse_response_in_bytes_to_http_response(response_in_bytes)
+        return http_response
+
+    def _handle_server_reponse(self, http_response, sock):
+        if http_response.status == HTTPStatus.Informational:
+            self._handle_informational_response(http_response)
+        if http_response.status == HTTPStatus.Success:
+            self._handle_success_response(http_response)
+        if http_response.status == HTTPStatus.Redirection:
+            self._handle_redirection_response(http_response, sock)
+        if http_response.status == HTTPStatus.Client_error:
+            self._handle_client_error_response(http_response)
+        if http_response.status == HTTPStatus.Server_error:
+            self._handle_server_error_response(http_response)
 
     def _send_http_request(self, request, sock):
         sock.settimeout(self._user_request.common_params["max_time"])
         sock.connect((request.headers["Host"], 80))
         sock.send(request.request_to_bytes())
 
-    def _handle_3xx_response(self, sock):
-        while self._http_response.is_it_3xx_response():
+    #region processing_response
+
+    def _handle_informational_response(self, http_response):
+        pass
+
+    def _handle_success_response(self, http_response):
+        if "output" in self._user_request.method_params:
+            self._write_message_body_to_file(http_response)
+        else:
+            self._create_success_response_to_user(http_response)
+
+    def _handle_redirection_response(self, http_request, sock):
+        while http_request.status == HTTPResponse.redirection():
             if not self._is_it_correct_url(
-                    self._http_response.headers["Location"]):
+                    http_request.headers["Location"]):
                 raise WrongUrlError("Redirect url isn't correct")
             sock.connect((self._http_response.headers["Location"], 80))
-            if self._request_method == HTTPMethods.GET:
+            if self._user_request.request_method == HTTPMethods.GET:
                 self._create_get_request(self._http_response.headers["Location"])
             self._send_http_request(self._http_request, sock)
 
-    def _handle_2xx_response(self):
-        if "output" in self._method_params:
-            self._write_message_body_to_file()
-        else:
-            self._create_success_client_response()
+    def _handle_client_error_response(self, http_response):
+        pass
 
-    def _write_message_body_to_file(self):
+    def _handle_server_error_response(self, http_response):
+        pass
+
+    #endregion
+
+    def _write_message_body_to_file(self, http_response):
         try:
-            with open(self._method_params["output"], "w") as file:
-                file.write(self._http_response.message_body)
+            with open(self._user_request.method_params["output"], "w") as file:
+                file.write(http_response.message_body)
         except PermissionError:
             raise AccessToTheFileIsDenied(self._method_params["output"])
 
-    def _create_success_client_response(self):
-        if self._http_response.headers["Content-Type"][0] == "text/html":
+    def _create_success_response_to_user(self, http_response):
+        if http_response.headers["Content-Type"][0] == "text/html":
             self._client_response = TextClientResponse()
             self._decode_message_body()
-            self._client_response.set_text(self._http_response.message_body)
+            self._client_response.set_text(http_response.message_body)
 
     def _decode_message_body(self):
         charset = self._get_charset_from_http_response()
@@ -118,22 +142,26 @@ class HTTPClient:
         parsed_url = urlparse(url)
         self._set_starting_line_for_request(
             http_request,
-            parsed_url.path if parsed_url.path != "" else "/",
+            (parsed_url.path
+             if parsed_url.path != "" and parsed_url.netloc != ""else "/"),
             http_version)
         self._set_headers_for_request(http_request, headers)
         return http_request
 
-    def _set_starting_line_for_request(self, request, path_on_website, http_version):
-        request.set_starting_line(
-            "{} {} HTTP/{}".format(self._request_method, path_on_website, http_version))
+    def _set_starting_line_for_request(self, request,
+                                       path_on_website, http_version):
+        request.starting_line =\
+            "{} {} HTTP/{}".format(self._user_request.request_method,
+                                   path_on_website, http_version)
 
     def _set_headers_for_request(self, http_request, headers):
         for header, option in headers.items():
-            http_request.add_header(header, option)
+            http_request.headers[header] = option
 
     def _create_default_headers(self, url):
         parsed_url = urlparse(url)
-        headers = {"Host": parsed_url.netloc,
+        headers = {"Host": (parsed_url.netloc if parsed_url.netloc != ""
+                            else parsed_url.path),
                    "Accept": ", ".join(HTTPConfig.accept_mime_types()),
                    "User-Agent": HTTPConfig.client_name()}
         if "addition_header" in self._user_request.common_params:
@@ -143,11 +171,10 @@ class HTTPClient:
 
     def _check_correctness_of_args(self, parsed_args):
         parsed_url = urlparse(parsed_args.url)
-        if parsed_url.scheme != "http" or parsed_url.netloc == "":
-            raise WrongUrlError(
-                parsed_args.request_method,
-                parsed_url.scheme if parsed_url.scheme != "http"
-                else parsed_url.netloc)
+        print(parsed_url)
+        if ((parsed_url.scheme != "http" or parsed_url.netloc == "") and
+                parsed_url.path == ""):
+            raise WrongUrlError(parsed_args.url)
         if parsed_args.request_method == HTTPMethods.GET:
             self._check_correctness_of_get_method_parameters(parsed_args)
 

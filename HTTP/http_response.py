@@ -1,5 +1,6 @@
 import copy
 import re
+from enum import Enum
 
 
 class HTTPResponse:
@@ -7,6 +8,7 @@ class HTTPResponse:
         self._starting_line = {}
         self._headers = {}
         self._message_body = ""
+        self._status = None
 
     def set_starting_line(self, line):
         parts = re.search(r"HTTP/(.*?) (\d{3})", line)
@@ -25,25 +27,6 @@ class HTTPResponse:
     def set_message_body(self, message_body):
         self._message_body = message_body
 
-    def is_it_1xx_response(self):
-        return self._is_it_x_response("1")
-
-    def is_it_2xx_response(self):
-        return self._is_it_x_response("2")
-
-    def is_it_3xx_response(self):
-        return self._is_it_x_response("3")
-
-    def is_it_4xx_response(self):
-        return self._is_it_x_response("4")
-
-    def is_it_5xx_response(self):
-        return self._is_it_x_response("5")
-
-    def _is_it_x_response(self, x):
-        return ("status_code" in self._starting_line and
-                self._starting_line["status_code"][0] == x)
-
     @property
     def starting_line(self):
         return self._starting_line
@@ -55,3 +38,19 @@ class HTTPResponse:
     @property
     def message_body(self):
         return self._message_body
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        self._status = value
+
+
+class HTTPStatus(Enum):
+    Informational = 1
+    Success = 2
+    Redirection = 3
+    Client_error = 4
+    Server_error = 5
