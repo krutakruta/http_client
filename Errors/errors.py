@@ -1,6 +1,7 @@
 class WrongUrlError(Exception):
     pass
 
+
 class WrongMethodError(Exception):
     pass
 
@@ -16,7 +17,12 @@ class WrongParameterOptionError(Exception):
 class WrongHTTPResponseError(Exception):
     pass
 
-class AccessToTheFileIsDenied(Exception):
+
+class CannotGenerateCorrectFilenameError(Exception):
+    pass
+
+
+class AccessToTheFileDenied(Exception):
     def __init__(self, filename):
         self._filename = filename
 

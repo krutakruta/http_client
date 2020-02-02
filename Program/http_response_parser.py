@@ -14,7 +14,7 @@ class HTTPResponseParser:
                 http_response,
                 response_in_bytes[end_of_start_line + 2:end_of_headers].decode(
                     "utf-8", errors="ignore"))
-            http_response.set_message_body(response_in_bytes[end_of_headers + 10:])
+            http_response.message_body = response_in_bytes[end_of_headers + 4:]
             self._set_response_status(http_response)
         except Exception:
             raise #WrongHTTPResponseError()
@@ -23,9 +23,8 @@ class HTTPResponseParser:
     def _parse_headers(self, http_response, text_of_headers):
         for line in text_of_headers.split("\r\n"):
             end_of_header_name = line.find(":")
-            http_response.add_header(
-                line[:end_of_header_name],
-                line[end_of_header_name + 2:])
+            http_response.headers[line[:end_of_header_name]] =\
+                line[end_of_header_name + 2:]
 
     def _set_response_status(self, http_response):
         status = int(http_response.starting_line["status_code"])

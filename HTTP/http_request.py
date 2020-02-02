@@ -9,7 +9,7 @@ class HTTPRequest:
 
     def request_to_bytes(self):
         return "{}\n{}\n\n{}".format(
-            self._starting_line,
+            self.starting_line,
             "\n".join("{}: {}".format(key, val)
                       for key, val in self.headers.items()),
-            self._message_body).encode()
+            self.message_body).encode()

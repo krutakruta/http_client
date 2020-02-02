@@ -20,7 +20,7 @@ def main():
             print_client_response(response)
     except socket.gaierror as error:
         print("Сервер недоступен либо ошибка в URL")
-    except AccessToTheFileIsDenied as error:
+    except AccessToTheFileDenied as error:
         print("Доступ к файлу {} запрещен".format(error.filename))
     except Exception:
         raise

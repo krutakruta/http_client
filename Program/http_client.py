@@ -7,9 +7,8 @@ from HTTP.http_response import HTTPResponse, HTTPStatus
 from Program.client_response import TextClientResponse
 from Program.http_response_parser import HTTPResponseParser
 from urllib.parse import urlparse
-import socket
-import re
 from HTTP.user_request import UserHTTPRequest
+import socket, re, string, random, os.path
 
 
 class HTTPClient:
@@ -22,9 +21,9 @@ class HTTPClient:
     def run(self, args):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                http_response = self._handle_user_request(args, sock)
-                #print(http_response.message_body.decode(encoding="utf-8", errors="ignore"))
-                self._handle_server_reponse(http_response, sock)
+                server_response = self._handle_user_request(args, sock)
+                print(server_response.message_body.decode(encoding="utf-8", errors="ignore"))
+                self._handle_server_reponse(server_response, sock)
         except Exception:
             raise
 
@@ -35,22 +34,22 @@ class HTTPClient:
             self._send_http_request(http_request, sock)
         else:
             raise WrongMethodError()
-        response_in_bytes = self._get_server_response_in_bytes(sock)
+        response_in_bytes = self._recieve_server_response_in_bytes(sock)
         http_response = self._http_response_parser. \
             parse_response_in_bytes_to_http_response(response_in_bytes)
         return http_response
 
-    def _handle_server_reponse(self, http_response, sock):
-        if http_response.status == HTTPStatus.Informational:
-            self._handle_informational_response(http_response)
-        if http_response.status == HTTPStatus.Success:
-            self._handle_success_response(http_response)
-        if http_response.status == HTTPStatus.Redirection:
-            self._handle_redirection_response(http_response, sock)
-        if http_response.status == HTTPStatus.Client_error:
-            self._handle_client_error_response(http_response)
-        if http_response.status == HTTPStatus.Server_error:
-            self._handle_server_error_response(http_response)
+    def _handle_server_reponse(self, server_response, sock):
+        if server_response.status == HTTPStatus.Informational:
+            self._handle_informational_response(server_response)
+        elif server_response.status == HTTPStatus.Success:
+            self._handle_success_response(server_response)
+        elif server_response.status == HTTPStatus.Redirection:
+            self._handle_redirection_response(server_response, sock)
+        elif server_response.status == HTTPStatus.Client_error:
+            self._handle_client_error_response(server_response)
+        elif server_response.status == HTTPStatus.Server_error:
+            self._handle_server_error_response(server_response)
 
     def _send_http_request(self, request, sock):
         sock.settimeout(self._user_request.common_params["max_time"])
@@ -59,57 +58,76 @@ class HTTPClient:
 
     #region processing_response
 
-    def _handle_informational_response(self, http_response):
+    def _handle_informational_response(self, server_response):
         pass
 
-    def _handle_success_response(self, http_response):
-        if "output" in self._user_request.method_params:
-            self._write_message_body_to_file(http_response)
-        else:
-            self._create_success_response_to_user(http_response)
+    def _handle_success_response(self, server_response):
+        if self._is_it_text_response(
+                server_response, HTTPConfig.accept_mime_types()["text"]):
+            print("text")
+            if "output" in self._user_request.method_params:
+                self._write_message_body_to_file(server_response)
+            else:
+                self._create_success_text_response_to_user(server_response)
+        if self._is_it_image_response(
+                server_response, HTTPConfig.accept_mime_types()["image"]):
+            self._unload_image(server_response)
 
-    def _handle_redirection_response(self, http_request, sock):
-        while http_request.status == HTTPResponse.redirection():
+    def _handle_redirection_response(self, server_response, sock):
+        while server_response.status == HTTPStatus.redirection():
             if not self._is_it_correct_url(
-                    http_request.headers["Location"]):
+                    server_response.headers["Location"]):
                 raise WrongUrlError("Redirect url isn't correct")
-            sock.connect((self._http_response.headers["Location"], 80))
+            sock.connect((server_response.headers["Location"], 80))
             if self._user_request.request_method == HTTPMethods.GET:
-                self._create_get_request(self._http_response.headers["Location"])
-            self._send_http_request(self._http_request, sock)
+                self._create_get_request(server_response.headers["Location"])
+            self._send_http_request(server_response, sock)
 
-    def _handle_client_error_response(self, http_response):
+    def _handle_client_error_response(self, server_response):
         pass
 
-    def _handle_server_error_response(self, http_response):
+    def _handle_server_error_response(self, server_response):
         pass
 
     #endregion
 
-    def _write_message_body_to_file(self, http_response):
+    def _write_message_body_to_file(self, server_response):
+        charset = self._get_charset_from_http_response(server_response)
         try:
             with open(self._user_request.method_params["output"], "w") as file:
-                file.write(http_response.message_body)
+                file.write(server_response.message_body.decode(charset, errors="ignore"))
         except PermissionError:
-            raise AccessToTheFileIsDenied(self._method_params["output"])
+            raise AccessToTheFileDenied(self._user_request.method_params["output"])
 
-    def _create_success_response_to_user(self, http_response):
+    def _unload_image(self, server_response):
+        file_type = self._extract_type_of_image(server_response)
+        filename = self._generate_filename_to_unload(file_type)
+        with open(filename, "wb") as file:
+            #print(server_response.message_body)
+            file.write(server_response.message_body)
+
+    def _create_success_text_response_to_user(self, http_response):
         if http_response.headers["Content-Type"][0] == "text/html":
             self._client_response = TextClientResponse()
             self._decode_message_body()
             self._client_response.set_text(http_response.message_body)
 
-    def _decode_message_body(self):
-        charset = self._get_charset_from_http_response()
-        self._http_response.set_message_body(
-            self._http_response.message_body.decode(charset, errors="ignore"))
+    def _decode_message_body(self, http_response):
+        charset = self._get_charset_from_http_response(http_response)
+        http_response.message_body =\
+            http_response.message_body.decode(charset, errors="ignore")
 
-    def _get_charset_from_http_response(self):
-        for option in self._http_response.headers["Content-Type"]:
-            if option.find("charset") != -1:
-                return re.sub(r"[\"\']", "", option.split("=")[1]).lower()
+    def _get_charset_from_http_response(self, http_response):
+        charset = re.search(r"charset=([a-zA-Z-0-9]+)", http_response.headers["Content-Type"])
+        if charset is None:
+            return HTTPConfig.default_encoding()
+        return charset.group(1)
 
-    def _get_server_response_in_bytes(self, sock):
+    def _extract_type_of_image(self, server_response):
+        return re.search("|".join(HTTPConfig.accept_mime_types()["image"]),
+                         server_response.headers["Content-Type"]).group(0)[6:]
+
+    def _recieve_server_response_in_bytes(self, sock):
         MTU = 4096
         bytes_pack = sock.recv(MTU)
         response = bytes_pack
@@ -163,7 +181,8 @@ class HTTPClient:
         headers = {"Host": (parsed_url.netloc if parsed_url.netloc != ""
                             else parsed_url.path),
                    "Accept": ", ".join(HTTPConfig.accept_mime_types()),
-                   "User-Agent": HTTPConfig.client_name()}
+                   "User-Agent": HTTPConfig.client_name(),
+                   "Connection:": HTTPConfig.connection()}
         if "addition_header" in self._user_request.common_params:
             for header_and_option in self._common_params["additional_header"]:
                 headers[header_and_option[0]] = header_and_option[1]
@@ -171,7 +190,6 @@ class HTTPClient:
 
     def _check_correctness_of_args(self, parsed_args):
         parsed_url = urlparse(parsed_args.url)
-        print(parsed_url)
         if ((parsed_url.scheme != "http" or parsed_url.netloc == "") and
                 parsed_url.path == ""):
             raise WrongUrlError(parsed_args.url)
@@ -197,6 +215,21 @@ class HTTPClient:
                     parse_result.netloc == "" or
                     url != "localhost")
 
+    def _checking_content_type_of_reponse(func):
+        def wrapper(self, server_response, accept_mime_types):
+            return re.search(
+                "|".join(accept_mime_types),
+                server_response.headers["Content-Type"]) is not None
+        return wrapper
+
+    @_checking_content_type_of_reponse
+    def _is_it_text_response(self, server_response, accept_mime_types):
+        pass
+
+    @_checking_content_type_of_reponse
+    def _is_it_image_response(self, server_response, accept_mime_types):
+        pass
+
     def _check_method_parameters(self, user_request):
         if user_request.method == HTTPMethods.GET:
             for param in user_request.parameters_and_its_options_copy:
@@ -204,6 +237,17 @@ class HTTPClient:
                     raise WrongMethodParameterError(
                         "{} isn't {}'s parameter".format(
                             param, user_request.method))
+
+    def _generate_filename_to_unload(self, file_type):
+        filename = "file." + file_type
+        attempts = 100
+        while os.path.exists(filename):
+            filename = ''.join(random.choice(string.ascii_letters)
+                               for _ in range(random.randint(5, 10)))
+            attempts -= 1
+            if attempts < 0:
+                raise CannotGenerateCorrectFilenameError()
+        return filename
 
     def get_client_response(self):
         return self._client_response
