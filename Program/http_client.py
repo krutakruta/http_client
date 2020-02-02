@@ -22,7 +22,7 @@ class HTTPClient:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 server_response = self._handle_user_request(args, sock)
-                print(server_response.message_body.decode(encoding="utf-8", errors="ignore"))
+                #print(server_response.message_body.decode(encoding="utf-8", errors="ignore"))
                 self._handle_server_reponse(server_response, sock)
         except Exception:
             raise
@@ -62,15 +62,13 @@ class HTTPClient:
         pass
 
     def _handle_success_response(self, server_response):
-        if self._is_it_text_response(
-                server_response, HTTPConfig.accept_mime_types()["text"]):
-            print("text")
+        if self._is_it_text_response(server_response):
+            #print("text")
             if "output" in self._user_request.method_params:
                 self._write_message_body_to_file(server_response)
             else:
                 self._create_success_text_response_to_user(server_response)
-        if self._is_it_image_response(
-                server_response, HTTPConfig.accept_mime_types()["image"]):
+        elif self._is_it_image_response(server_response):
             self._unload_image(server_response)
 
     def _handle_redirection_response(self, server_response, sock):
@@ -84,10 +82,10 @@ class HTTPClient:
             self._send_http_request(server_response, sock)
 
     def _handle_client_error_response(self, server_response):
-        pass
+        self._create_client_error_response_to_user(server_response)
 
     def _handle_server_error_response(self, server_response):
-        pass
+        self._create_server_error_response_to_user(server_response)
 
     #endregion
 
@@ -107,10 +105,22 @@ class HTTPClient:
             file.write(server_response.message_body)
 
     def _create_success_text_response_to_user(self, http_response):
-        if http_response.headers["Content-Type"][0] == "text/html":
+        if self._is_it_text_response(http_response):
             self._client_response = TextClientResponse()
-            self._decode_message_body()
+            self._decode_message_body(http_response)
             self._client_response.set_text(http_response.message_body)
+
+    def _create_client_error_response_to_user(self, http_response):
+        self._client_response = TextClientResponse()
+        self._client_response.set_text(
+            "Ошибка клиента: {}".format(
+                http_response.starting_line["status_code"]))
+
+    def _create_server_error_response_to_user(self, http_response):
+        self._client_response = TextClientResponse()
+        self._client_response.set_text(
+            "Ошибка сервера: {}".format(
+                http_response.starting_line["status_code"]))
 
     def _decode_message_body(self, http_response):
         charset = self._get_charset_from_http_response(http_response)
@@ -215,20 +225,19 @@ class HTTPClient:
                     parse_result.netloc == "" or
                     url != "localhost")
 
-    def _checking_content_type_of_reponse(func):
-        def wrapper(self, server_response, accept_mime_types):
-            return re.search(
-                "|".join(accept_mime_types),
-                server_response.headers["Content-Type"]) is not None
-        return wrapper
+    def _is_it_text_response(self, server_response):
+        return self._is_content_type_of_response_accept(
+            server_response, HTTPConfig.accept_mime_types()["text"])
 
-    @_checking_content_type_of_reponse
-    def _is_it_text_response(self, server_response, accept_mime_types):
-        pass
+    def _is_it_image_response(self, server_response):
+        return self._is_content_type_of_response_accept(
+            server_response, HTTPConfig.accept_mime_types()["image"])
 
-    @_checking_content_type_of_reponse
-    def _is_it_image_response(self, server_response, accept_mime_types):
-        pass
+    def _is_content_type_of_response_accept(self, server_response, accept_mime_types):
+        search_result = re.search(r"[a-zA-Z]+?\/[\w.-]+",
+                                  server_response.headers["Content-Type"])
+        return (search_result is not None and
+                search_result.group(0) in accept_mime_types)
 
     def _check_method_parameters(self, user_request):
         if user_request.method == HTTPMethods.GET:
@@ -242,8 +251,9 @@ class HTTPClient:
         filename = "file." + file_type
         attempts = 100
         while os.path.exists(filename):
-            filename = ''.join(random.choice(string.ascii_letters)
-                               for _ in range(random.randint(5, 10)))
+            filename = ''.join(
+                random.choice(string.ascii_letters)
+                for _ in range(random.randint(5, 10))) + "." + file_type
             attempts -= 1
             if attempts < 0:
                 raise CannotGenerateCorrectFilenameError()

@@ -27,8 +27,7 @@ def main():
 
 
 def print_client_response(response):
-    pass
-    #print(response.text)
+    print(response.text)
 
 def create_parser():
     parser = argparse.ArgumentParser()
